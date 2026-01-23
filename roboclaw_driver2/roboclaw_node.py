@@ -148,6 +148,7 @@ class RoboclawNode(Node):
             diag = self._rbc_ctls[0].read_diag()
             msg.m1_current = diag.m1_current
             msg.m2_current = diag.m2_current
+            msg.board_temp = diag.temp1
 
             self.get_logger().debug((
                 f"Encoder diffs M1:{stats.m1_enc_val - self.prev_m1_val},"
