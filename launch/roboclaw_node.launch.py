@@ -3,7 +3,6 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-
 def generate_launch_description():
     node_name = DeclareLaunchArgument('name', default_value='roboclaw')
     dev_names = DeclareLaunchArgument('dev_names', default_value='/dev/ttyACM0')
@@ -31,13 +30,19 @@ def generate_launch_description():
         ]
     )
 
+    cpu_temp_node = Node(
+        package='pipe_crawler_control',
+        executable='cpu_temp_publisher',
+        name='cpu_temp_publisher'
+    )
+
     return LaunchDescription(
         [
             # Arguments
             node_name, dev_names, baud, address, loop_hz, deadman_secs,
             speed_cmd_topic, stats_topic, test_mode,
-
-            # Node
-            roboclaw_node
+            # Nodes
+            roboclaw_node,
+            cpu_temp_node
         ]
     )

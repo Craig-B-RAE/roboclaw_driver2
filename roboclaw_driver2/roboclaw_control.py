@@ -43,6 +43,7 @@ class RoboclawStats:
         self.m2_enc_val = None
         self.m1_enc_qpps = None
         self.m2_enc_qpps = None
+        self.battery_voltage = 0.0
         self.error_messages = []
 
     def __str__(self):
@@ -91,17 +92,14 @@ class RoboclawControl:
         return self._roboclaw
 
     def _initialize(self):
-        # Connect and initialize the Roboclaw controller over serial
         with self._serial_lock:
-            try:
-                self._roboclaw.Open()
-            except Exception:
-                # Pass the exception up so it can be logged by the ROS logging facilities
-                # Also, if this fais we really can't continue
-                raise
-
-            self.stop()
-            self._roboclaw.ResetEncoders(self._address)
+            print("DEBUG: About to call Open()")
+            import sys
+            sys.stdout.flush()
+            result = self._roboclaw.Open()
+            print(f"DEBUG: Open() returned: {result}")
+            if result == 0:
+                raise Exception("Failed to open serial port")
 
     def stop(self, decel=20000):
         """Stop Roboclaw.
@@ -186,6 +184,17 @@ class RoboclawControl:
                     read_error = True
             if read_error:
                 return (False, None)
+
+            # Read battery voltage (NEW)
+            for i in range(0, retries):
+                response = self._roboclaw.ReadMainBatteryVoltage(self._address)
+                if response[0]:
+                    stats.battery_voltage = response[1] / 10.0  # Convert from 10ths to volts
+                    read_error = False
+                    break
+                else:
+                    stats.error_messages.append("ReadMainBatteryVoltage failed: {}".format(response[0]))
+                    read_error = True
 
         # Return (success, stats)
         return (True, stats)

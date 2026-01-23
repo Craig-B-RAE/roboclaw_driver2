@@ -142,6 +142,12 @@ class RoboclawNode(Node):
 
             msg.m2_enc_val = stats.m2_enc_val
             msg.m2_enc_qpps = stats.m2_enc_qpps
+            msg.battery_voltage = stats.battery_voltage
+
+            # Read and add motor currents
+            diag = self._rbc_ctls[0].read_diag()
+            msg.m1_current = diag.m1_current
+            msg.m2_current = diag.m2_current
 
             self.get_logger().debug((
                 f"Encoder diffs M1:{stats.m1_enc_val - self.prev_m1_val},"

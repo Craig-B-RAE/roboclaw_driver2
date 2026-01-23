@@ -1,0 +1,11 @@
+
+roboclaw_node:
+  ros__parameters:
+    dev_name: "/dev/ttyACM0"
+    baud: 115200
+    address: 128
+    loop_hz: 10
+    deadman_secs: 1.0
+    test_mode: false
+    speed_cmd_topic: "speed_command"
+    stats_topic: "roboclaw_stats"
