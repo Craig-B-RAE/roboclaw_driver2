@@ -22,7 +22,7 @@ DEFAULT_BAUD_RATE = 115200
 DEFAULT_NODE_NAME = "roboclaw_driver"
 DEFAULT_LOOP_HZ = 10
 DEFAULT_ADDRESS = 0x80
-DEFAULT_DEADMAN_SEC = 3
+DEFAULT_DEADMAN_SEC = 120
 DEFAULT_STATS_TOPIC = "stats"
 DEFAULT_SPEED_CMD_TOPIC = "speed_command"
 
@@ -70,7 +70,7 @@ class RoboclawNode(Node):
         self._last_cmd_max_secs = 0
         self._speed_cmd_lock = threading.RLock()  # To serialize access to cmd variables
 
-        self._deadman_secs = self.get_parameter(PARAM_DEADMAN_SECS).value
+        self._deadman_secs = float(self.get_parameter(PARAM_DEADMAN_SECS).value); print(f'DEADMAN SECS: {self._deadman_secs}')
 
         # Set up the Publishers
         self.stats_pub = self.create_publisher(
@@ -162,7 +162,7 @@ class RoboclawNode(Node):
             self.get_logger.warn("Error reading stats from Roboclaw: {stats}")
 
         # Stop motors if running and no commands are being received
-        if (stats.m1_enc_qpps != 0 or stats.m2_enc_qpps != 0):
+        if False:  # Deadman disabled
             if (self.get_clock().now() - self._last_cmd_time).nanoseconds / 1e9 > self._deadman_secs:
                 self.get_logger().info("Did not receive a command for over 1 sec: Stopping motors")
                 decel = max(abs(stats.m1_enc_qpps), abs(stats.m2_enc_qpps)) * 2

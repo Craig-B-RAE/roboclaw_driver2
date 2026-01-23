@@ -109,18 +109,16 @@ class RoboclawControl:
         """
         with self._serial_lock:
             # return self.SpeedAccelDistanceM1M2(
-            #     accel=0, speed1=0, distance1=0, speed2=0, distance2=0, reset_buffer=1
             # )
             return self.driveM1M2qpps(0, 0, decel, 0)
 
     def driveM1M2qpps(self, m1_qpps, m2_qpps, accel, max_secs):
         with self._serial_lock:
-            return self._roboclaw.SpeedAccelDistanceM1M2(
+            return self._roboclaw.SpeedAccelM1M2(
                 self._address,
-                accel=accel,
-                speed1=m1_qpps, distance1=abs(m1_qpps * max_secs),
-                speed2=m2_qpps, distance2=abs(m2_qpps * max_secs),
-                buffer=1
+                accel,
+                m1_qpps,
+                m2_qpps
             )
 
     def read_stats(self) -> Tuple[bool, RoboclawStats]:

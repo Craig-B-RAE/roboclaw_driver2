@@ -9,7 +9,7 @@ def generate_launch_description():
     baud = DeclareLaunchArgument('baud', default_value='115200')
     address = DeclareLaunchArgument('address', default_value='128')
     loop_hz = DeclareLaunchArgument('loop_hz', default_value='10')
-    deadman_secs = DeclareLaunchArgument('deadman_secs', default_value='3')
+    deadman_secs = DeclareLaunchArgument('deadman_secs', default_value='60')
     speed_cmd_topic = DeclareLaunchArgument('speed_cmd_topic', default_value='speed_command')
     stats_topic = DeclareLaunchArgument('stats_topic', default_value='stats')
     test_mode = DeclareLaunchArgument('test_mode', default_value='false')
