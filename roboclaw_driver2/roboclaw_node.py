@@ -3,6 +3,7 @@
 
 import traceback
 import threading
+from serial import SerialException
 
 # import diagnostic_updater
 import rclpy
@@ -126,51 +127,56 @@ class RoboclawNode(Node):
         - Read encoders from the roboclaws and publish on the stats topic
         - Stop the node if no command has been received in < deadman_secs
         """
-        # Read encoder readings
-        read_success, stats = self._rbc_ctls[0].read_stats()
-        for error in stats.error_messages:
-            self.get_logger().warn(error)
+        try:
+            # Read encoder readings
+            read_success, stats = self._rbc_ctls[0].read_stats()
+            if stats is not None:
+                for error in stats.error_messages:
+                    self.get_logger().warn(error)
 
-        # Publish the encoder readings as stats
-        if read_success:
-            msg = Stats()
+            # Publish the encoder readings as stats
+            if read_success and stats is not None:
+                msg = Stats()
 
-            msg.header.stamp = self.get_clock().now().to_msg()
+                msg.header.stamp = self.get_clock().now().to_msg()
 
-            msg.m1_enc_val = stats.m1_enc_val
-            msg.m1_enc_qpps = stats.m1_enc_qpps
+                msg.m1_enc_val = stats.m1_enc_val
+                msg.m1_enc_qpps = stats.m1_enc_qpps
 
-            msg.m2_enc_val = stats.m2_enc_val
-            msg.m2_enc_qpps = stats.m2_enc_qpps
-            msg.battery_voltage = stats.battery_voltage
+                msg.m2_enc_val = stats.m2_enc_val
+                msg.m2_enc_qpps = stats.m2_enc_qpps
+                msg.battery_voltage = stats.battery_voltage
 
-            # Read and add motor currents
-            diag = self._rbc_ctls[0].read_diag()
-            msg.m1_current = diag.m1_current
-            msg.m2_current = diag.m2_current
-            msg.board_temp = diag.temp1
+                # Read and add motor currents
+                diag = self._rbc_ctls[0].read_diag()
+                msg.m1_current = diag.m1_current
+                msg.m2_current = diag.m2_current
+                msg.board_temp = diag.temp1
 
-            self.get_logger().debug((
-                f"Encoder diffs M1:{stats.m1_enc_val - self.prev_m1_val},"
-                f" M2:{stats.m2_enc_val - self.prev_m2_val}"
-            ))
-            self.prev_m1_val = stats.m1_enc_val
-            self.prev_m2_val = stats.m2_enc_val
+                self.get_logger().debug((
+                    f"Encoder diffs M1:{stats.m1_enc_val - self.prev_m1_val},"
+                    f" M2:{stats.m2_enc_val - self.prev_m2_val}"
+                ))
+                self.prev_m1_val = stats.m1_enc_val
+                self.prev_m2_val = stats.m2_enc_val
 
-            self.stats_pub.publish(msg)
-        else:
-            self.get_logger.warn("Error reading stats from Roboclaw: {stats}")
+                self.stats_pub.publish(msg)
+            else:
+                self.get_logger().warn(f"Error reading stats from Roboclaw: {stats}")
 
-        # Stop motors if running and no commands are being received
-        if False:  # Deadman disabled
-            if (self.get_clock().now() - self._last_cmd_time).nanoseconds / 1e9 > self._deadman_secs:
-                self.get_logger().info("Did not receive a command for over 1 sec: Stopping motors")
-                decel = max(abs(stats.m1_enc_qpps), abs(stats.m2_enc_qpps)) * 2
-                for rbc_ctl in self._rbc_ctls:
-                    rbc_ctl.stop(decel=decel)
+            # Stop motors if running and no commands are being received
+            if False:  # Deadman disabled
+                if (self.get_clock().now() - self._last_cmd_time).nanoseconds / 1e9 > self._deadman_secs:
+                    self.get_logger().info("Did not receive a command for over 1 sec: Stopping motors")
+                    decel = max(abs(stats.m1_enc_qpps), abs(stats.m2_enc_qpps)) * 2
+                    for rbc_ctl in self._rbc_ctls:
+                        rbc_ctl.stop(decel=decel)
 
-                # Publish diagnostics
-                # self._diag_updater.update()
+                    # Publish diagnostics
+                    # self._diag_updater.update()
+
+        except SerialException as e:
+            self.get_logger().warn(f"Serial error reading Roboclaw (device may be disconnected): {e}")
 
     # def _publish_diagnostics(self, stat):
     #     """Function called by the diagnostic_updater to fetch and publish diagnostics
@@ -224,14 +230,17 @@ class RoboclawNode(Node):
                     f" Accel: {command.accel} | Max Secs: {command.max_secs}"
                 ))
 
-                for rbc_ctl in self._rbc_ctls:
-                    success = rbc_ctl.driveM1M2qpps(
-                        command.m1_qpps, command.m2_qpps,
-                        command.accel, command.max_secs
-                    )
+                try:
+                    for rbc_ctl in self._rbc_ctls:
+                        success = rbc_ctl.driveM1M2qpps(
+                            command.m1_qpps, command.m2_qpps,
+                            command.accel, command.max_secs
+                        )
 
-                    if not success:
-                        self.get_logger().error("RoboclawControl SpeedAccelDistanceM1M2 failed")
+                        if not success:
+                            self.get_logger().error("RoboclawControl SpeedAccelDistanceM1M2 failed")
+                except SerialException as e:
+                    self.get_logger().warn(f"Serial error sending command to Roboclaw: {e}")
 
 
 def main(args=None):
