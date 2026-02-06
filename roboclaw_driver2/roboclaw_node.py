@@ -3,6 +3,8 @@
 
 import traceback
 import threading
+import os
+import termios
 from serial import SerialException
 
 # import diagnostic_updater
@@ -62,6 +64,10 @@ class RoboclawNode(Node):
         )
 
         self._rbc_ctls = []  # Populated by the connect() method
+        self._dev_names = []
+        self._baud_rate = None
+        self._address = None
+        self._connected = False
 
         # Records the values of the last speed command
         self._last_cmd_time = self.get_clock().now()
@@ -115,18 +121,48 @@ class RoboclawNode(Node):
             test_mode (bool, optional): True if connecting to the controller test stub. Defaults to False.
         """
         self.get_logger().info("Connecting to roboclaw")
+        self._baud_rate = baud_rate
+        self._address = address
+        self._dev_names.append(dev_name)
         if not test_mode:
             roboclaw = Roboclaw(dev_name, baud_rate)
         else:
             self.get_logger().info('Running in test mode. Connecting to stubbed Roboclaw device')
             roboclaw = RoboclawStub(dev_name, baud_rate)
         self._rbc_ctls.append(RoboclawControl(roboclaw, address))
+        self._connected = True
+
+    def _try_reconnect(self):
+        """Attempt to reconnect to the Roboclaw by reopening serial ports."""
+        for i, dev_name in enumerate(self._dev_names):
+            if not os.path.exists(dev_name):
+                return False
+            try:
+                rbc = self._rbc_ctls[i]._roboclaw
+                if hasattr(rbc, '_port') and rbc._port is not None:
+                    try:
+                        rbc._port.close()
+                    except Exception:
+                        pass
+                result = rbc.Open()
+                if result == 0:
+                    return False
+            except Exception:
+                return False
+        self.get_logger().info("Reconnected to Roboclaw")
+        return True
 
     def _main_loop(self):
         """Callback run on a timer to perform periodic node functions:
         - Read encoders from the roboclaws and publish on the stats topic
         - Stop the node if no command has been received in < deadman_secs
+        - Attempt reconnection if the device was disconnected
         """
+        if not self._connected:
+            if self._try_reconnect():
+                self._connected = True
+            return
+
         try:
             # Read encoder readings
             read_success, stats = self._rbc_ctls[0].read_stats()
@@ -175,8 +211,9 @@ class RoboclawNode(Node):
                     # Publish diagnostics
                     # self._diag_updater.update()
 
-        except SerialException as e:
-            self.get_logger().warn(f"Serial error reading Roboclaw (device may be disconnected): {e}")
+        except (SerialException, termios.error, OSError) as e:
+            self.get_logger().warn(f"Roboclaw disconnected: {e}")
+            self._connected = False
 
     # def _publish_diagnostics(self, stat):
     #     """Function called by the diagnostic_updater to fetch and publish diagnostics
@@ -230,6 +267,10 @@ class RoboclawNode(Node):
                     f" Accel: {command.accel} | Max Secs: {command.max_secs}"
                 ))
 
+                if not self._connected:
+                    self.get_logger().warn("Cannot send command: Roboclaw not connected")
+                    return
+
                 try:
                     for rbc_ctl in self._rbc_ctls:
                         success = rbc_ctl.driveM1M2qpps(
@@ -239,8 +280,9 @@ class RoboclawNode(Node):
 
                         if not success:
                             self.get_logger().error("RoboclawControl SpeedAccelDistanceM1M2 failed")
-                except SerialException as e:
-                    self.get_logger().warn(f"Serial error sending command to Roboclaw: {e}")
+                except (SerialException, termios.error, OSError) as e:
+                    self.get_logger().warn(f"Roboclaw disconnected during command: {e}")
+                    self._connected = False
 
 
 def main(args=None):
