@@ -5,8 +5,8 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     node_name = DeclareLaunchArgument('name', default_value='roboclaw')
-    dev_names = DeclareLaunchArgument('dev_names', default_value='/dev/ttyACM0')
-    baud = DeclareLaunchArgument('baud', default_value='115200')
+    dev_names = DeclareLaunchArgument('dev_names', default_value='/dev/ttyAMA3')
+    baud = DeclareLaunchArgument('baud', default_value='38400')
     address = DeclareLaunchArgument('address', default_value='128')
     loop_hz = DeclareLaunchArgument('loop_hz', default_value='10')
     deadman_secs = DeclareLaunchArgument('deadman_secs', default_value='60')

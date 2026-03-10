@@ -1,8 +1,8 @@
 
 roboclaw_node:
   ros__parameters:
-    dev_name: "/dev/ttyACM0"
-    baud: 115200
+    dev_name: "/dev/ttyAMA3"
+    baud: 38400
     address: 128
     loop_hz: 10
     deadman_secs: 1.0
